@@ -18,16 +18,7 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.FOLLOWER_APPEND_ENTRIES_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_METRIC_PEER_COMMIT_INDEX;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_READ_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_STALE_READ_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WATCH_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WRITE_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
-import static org.apache.ratis.server.metrics.RatisMetricNames.REQUEST_QUEUE_SIZE;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RETRY_REQUEST_CACHE_HIT_COUNTER;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_APPEND_ENTRIES_LATENCY;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,6 +28,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
 
+import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -50,9 +42,26 @@ import org.apache.ratis.util.Preconditions;
 /**
  * Metric Registry for Raft Group Server. One instance per leader/follower.
  */
-public final class RaftServerMetrics {
+public final class RaftServerMetrics extends RatisMetrics {
 
-  private RatisMetricRegistry registry = null;
+  public static final String RATIS_SERVER_METRICS = "server";
+  public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
+
+  public static final String
+      FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "%s_lastHeartbeatElapsedTime";
+  public static final String LEADER_METRIC_PEER_COMMIT_INDEX = "%s_peerCommitIndex";
+  public static final String RAFT_CLIENT_READ_REQUEST = "clientReadRequest";
+  public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
+  public static final String RAFT_CLIENT_WRITE_REQUEST = "clientWriteRequest";
+  public static final String RAFT_CLIENT_WATCH_REQUEST = "clientWatch%sRequest";
+  public static final String RETRY_REQUEST_CACHE_HIT_COUNTER = "numRetryCacheHits";
+  public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
+  public static final String RESOURCE_LIMIT_HIT_COUNTER = "leaderNumResourceLimitHits";
+  public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
+  public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
+  public static final String REQUEST_BYTE_SIZE = "numPendingRequestByteSize";
+
+
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
 
@@ -66,9 +75,15 @@ public final class RaftServerMetrics {
   }
 
   private RaftServerMetrics(RaftServerImpl server) {
-    registry = RatisMetrics.getMetricRegistryForRaftServer(server.getMemberId().toString());
+    registry = getMetricRegistryForRaftServer(server.getMemberId().toString());
     commitInfoCache = server.getCommitInfoCache();
     addPeerCommitIndexGauge(server.getId());
+  }
+
+  private RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
+    return create(new MetricRegistryInfo(serverId,
+        RATIS_APPLICATION_NAME_METRICS, RATIS_SERVER_METRICS,
+        RATIS_SERVER_METRICS_DESC));
   }
 
   /**
@@ -78,7 +93,7 @@ public final class RaftServerMetrics {
   public void addFollower(RaftPeer peer) {
     String followerName = peer.getId().toString();
     String followerHbMetricKey = String.format(
-        LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC,
+        FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC,
         followerName);
 
     followerLastHeartbeatElapsedTimeMap.put(followerName, 0L);
@@ -177,5 +192,21 @@ public final class RaftServerMetrics {
 
   void addNumPendingRequestsGauge(Gauge queueSize) {
     registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
+  }
+
+  void addNumPendingRequestsByteSize(Gauge byteSize) {
+    registry.gauge(REQUEST_BYTE_SIZE, () -> byteSize);
+  }
+
+  void onRequestByteSizeLimitHit() {
+    registry.counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  void onResourceLimitHit() {
+    registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  public RatisMetricRegistry getRegistry() {
+    return registry;
   }
 }

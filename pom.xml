@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>0.5.0-SNAPSHOT</version>
+  <version>0.5.0</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -32,6 +32,34 @@
   </description>
   <url>https://ratis.apache.org/</url>
   <inceptionYear>2017</inceptionYear>
+
+  <distributionManagement>
+    <repository>
+      <id>${distMgmtStagingId}</id>
+      <name>${distMgmtStagingName}</name>
+      <url>${distMgmtStagingUrl}</url>
+    </repository>
+    <snapshotRepository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </repository>
+    <repository>
+      <id>repository.jboss.org</id>
+      <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 
   <licenses>
     <license>
@@ -57,6 +85,7 @@
     <module>ratis-replicated-map</module>
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
+    <module>ratis-tools</module>
   </modules>
 
   <pluginRepositories>
@@ -175,6 +204,13 @@
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
 
+    <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
+    <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
+    <distMgmtSnapshotsUrl>https://repository.apache.org/content/repositories/snapshots</distMgmtSnapshotsUrl>
+    <distMgmtStagingId>apache.staging.https</distMgmtStagingId>
+    <distMgmtStagingName>Apache Release Distribution Repository</distMgmtStagingName>
+    <distMgmtStagingUrl>https://repository.apache.org/service/local/staging/deploy/maven2</distMgmtStagingUrl>
+
     <shell-executable>bash</shell-executable>
 
     <hadoop.version>3.1.1</hadoop.version>
@@ -203,6 +239,10 @@
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
+
+    <!-- commons lang version -->
+    <commons.lang.version>3.8.1</commons.lang.version>
+
   </properties>
 
   <dependencyManagement>
@@ -257,6 +297,18 @@
        <version>${project.version}</version>
        <type>test-jar</type>
        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
       <dependency>
         <artifactId>ratis-grpc</artifactId>

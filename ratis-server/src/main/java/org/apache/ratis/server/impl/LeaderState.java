@@ -196,6 +196,7 @@ public class LeaderState {
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
+  private final StreamRequests streamRequests;
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
@@ -221,6 +222,7 @@ public class LeaderState {
     logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
+    this.streamRequests = new StreamRequests(server.getMemberId());
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -262,7 +264,9 @@ public class LeaderState {
     } catch (IOException e) {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
+    streamRequests.clear();
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
+    logAppenderMetrics.unregister();
   }
 
   void notifySenders() {
@@ -321,20 +325,35 @@ public class LeaderState {
     return pendingRequests.add(permit, request, entry);
   }
 
+  CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
+    return streamRequests.streamAsync(request)
+        .thenApply(dummy -> new RaftClientReply(request, server.getCommitInfos()))
+        .exceptionally(e -> exception2RaftClientReply(request, e));
+  }
+
+  CompletableFuture<RaftClientRequest> streamCloseAsync(RaftClientRequest request) {
+    return streamRequests.streamCloseAsync(request)
+        .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
+  }
+
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
     LOG.debug("{}: addWatchRequest {}", this, request);
     return watchRequests.add(request)
         .thenApply(v -> new RaftClientReply(request, server.getCommitInfos()))
-        .exceptionally(e -> {
-          e = JavaUtils.unwrapCompletionException(e);
-          if (e instanceof NotReplicatedException) {
-            return new RaftClientReply(request, (NotReplicatedException)e, server.getCommitInfos());
-          } else if (e instanceof NotLeaderException) {
-            return new RaftClientReply(request, (NotLeaderException)e, server.getCommitInfos());
-          } else {
-            throw new CompletionException(e);
-          }
-        });
+        .exceptionally(e -> exception2RaftClientReply(request, e));
+  }
+
+  private RaftClientReply exception2RaftClientReply(RaftClientRequest request, Throwable e) {
+    e = JavaUtils.unwrapCompletionException(e);
+    if (e instanceof NotReplicatedException) {
+      return new RaftClientReply(request, (NotReplicatedException)e, server.getCommitInfos());
+    } else if (e instanceof NotLeaderException) {
+      return new RaftClientReply(request, (NotLeaderException)e, server.getCommitInfos());
+    } else if (e instanceof LeaderNotReadyException) {
+      return new RaftClientReply(request, (LeaderNotReadyException)e, server.getCommitInfos());
+    } else {
+      throw new CompletionException(e);
+    }
   }
 
   void commitIndexChanged() {
@@ -384,7 +403,7 @@ public class LeaderState {
    * Update sender list for setConfiguration request
    */
   void addAndStartSenders(Collection<RaftPeer> newPeers) {
-    addSenders(newPeers, raftLog.getNextIndex(), false).forEach(LogAppender::startAppender);
+    addSenders(newPeers, RaftLog.LEAST_VALID_LOG_INDEX, false).forEach(LogAppender::startAppender);
   }
 
   Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {

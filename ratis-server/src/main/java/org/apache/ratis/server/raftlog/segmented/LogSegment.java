@@ -50,7 +50,7 @@ import java.util.function.Consumer;
  *
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
-class LogSegment implements Comparable<Long> {
+public class LogSegment implements Comparable<Long> {
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   static long getEntrySize(LogEntryProto entry) {
@@ -89,7 +89,7 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, false, start, end, raftLogMetrics);
   }
 
-  private static int readSegmentFile(File file, long start, long end,
+  public static int readSegmentFile(File file, long start, long end,
       boolean isOpen, CorruptionPolicy corruptionPolicy,
       RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer) throws
       IOException {
@@ -339,7 +339,7 @@ class LogSegment implements Comparable<Long> {
   /**
    * Remove records from the given index (inclusive)
    */
-  void truncate(long fromIndex) {
+  synchronized void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
@@ -368,18 +368,18 @@ class LogSegment implements Comparable<Long> {
         (this.getEndIndex() < l ? -1 : 1);
   }
 
-  void clear() {
+  synchronized void clear() {
     records.clear();
     entryCache.clear();
     configEntries.clear();
     endIndex = startIndex - 1;
   }
 
-  public int getLoadingTimes() {
+  int getLoadingTimes() {
     return loadingTimes.get();
   }
 
-  void evictCache() {
+  synchronized void evictCache() {
     entryCache.clear();
   }
 
