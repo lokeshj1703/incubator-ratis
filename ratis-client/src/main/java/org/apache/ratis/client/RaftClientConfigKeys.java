@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,14 +66,14 @@ public interface RaftClientConfigKeys {
   interface Async {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".async";
 
-    String MAX_OUTSTANDING_REQUESTS_KEY = PREFIX + ".outstanding-requests.max";
-    int MAX_OUTSTANDING_REQUESTS_DEFAULT = 100;
-    static int maxOutstandingRequests(RaftProperties properties) {
-      return getInt(properties::getInt, MAX_OUTSTANDING_REQUESTS_KEY,
-          MAX_OUTSTANDING_REQUESTS_DEFAULT, getDefaultLog(), requireMin(2));
+    String OUTSTANDING_REQUESTS_MAX_KEY = PREFIX + ".outstanding-requests.max";
+    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 100;
+    static int outstandingRequestsMax(RaftProperties properties) {
+      return getInt(properties::getInt, OUTSTANDING_REQUESTS_MAX_KEY,
+          OUTSTANDING_REQUESTS_MAX_DEFAULT, getDefaultLog(), requireMin(2));
     }
-    static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
-      setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
+    static void setOutstandingRequestsMax(RaftProperties properties, int outstandingRequests) {
+      setInt(properties::setInt, OUTSTANDING_REQUESTS_MAX_KEY, outstandingRequests);
     }
 
     interface Experimental {
@@ -86,6 +87,23 @@ public interface RaftClientConfigKeys {
       static void setSendDummyRequest(RaftProperties properties, boolean sendDummyRequest) {
         setBoolean(properties::setBoolean, SEND_DUMMY_REQUEST_KEY, sendDummyRequest);
       }
+    }
+  }
+
+  interface Stream {
+    String PREFIX = RaftClientConfigKeys.PREFIX + ".stream";
+
+    String SUBMESSAGE_SIZE_KEY = PREFIX + ".submessage-size";
+    SizeInBytes SUBMESSAGE_SIZE_DEFAULT = SizeInBytes.valueOf("1MB");
+    static SizeInBytes submessageSize(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes,
+          SUBMESSAGE_SIZE_KEY, SUBMESSAGE_SIZE_DEFAULT, getDefaultLog());
+    }
+    static void setSubmessageSize(RaftProperties properties, SizeInBytes submessageSize) {
+      setSizeInBytes(properties::set, SUBMESSAGE_SIZE_KEY, submessageSize, requireMin(SizeInBytes.ONE_KB));
+    }
+    static void setSubmessageSize(RaftProperties properties) {
+      setSubmessageSize(properties, SUBMESSAGE_SIZE_DEFAULT);
     }
   }
 

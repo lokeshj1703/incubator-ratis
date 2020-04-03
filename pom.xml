@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>0.5.0</version>
+  <version>0.6.0-SNAPSHOT</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -54,7 +54,7 @@
     </repository>
     <repository>
       <id>repository.jboss.org</id>
-      <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+      <url>https://repository.jboss.org/nexus/content/groups/public/</url>
       <snapshots>
         <enabled>false</enabled>
       </snapshots>
@@ -91,7 +91,7 @@
   <pluginRepositories>
     <pluginRepository>
       <id>apache.snapshots</id>
-      <url>http://repository.apache.org/snapshots/</url>
+      <url>https://repository.apache.org/snapshots/</url>
     </pluginRepository>
   </pluginRepositories>
 
