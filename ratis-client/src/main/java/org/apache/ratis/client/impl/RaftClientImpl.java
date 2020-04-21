@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -36,9 +37,11 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,6 +61,7 @@ final class RaftClientImpl implements RaftClient {
   abstract static class PendingClientRequest {
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
     private final AtomicInteger attemptCount = new AtomicInteger();
+    private final Map<Class<?>, Integer> exceptionCount = new ConcurrentHashMap<>();
 
     abstract RaftClientRequest newRequestImpl();
 
@@ -72,6 +76,14 @@ final class RaftClientImpl implements RaftClient {
 
     int getAttemptCount() {
       return attemptCount.get();
+    }
+
+    int incrementExceptionCount(Throwable t) {
+      return exceptionCount.compute(t.getClass(), (k, v) -> v != null ? v + 1 : 1);
+    }
+
+    int getExceptionCount(Throwable t) {
+      return Optional.ofNullable(exceptionCount.get(t.getClass())).orElse(0);
     }
   }
 
@@ -256,11 +268,17 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientReply sendRequestWithRetry(Supplier<RaftClientRequest> supplier) throws IOException {
+    PendingClientRequest pending = new PendingClientRequest() {
+      @Override RaftClientRequest newRequestImpl() {
+        return null;
+      }
+    };
     for(int attemptCount = 1;; attemptCount++) {
       final RaftClientRequest request = supplier.get();
       IOException ioe = null;
       try {
         final RaftClientReply reply = sendRequest(request);
+
         if (reply != null) {
           return reply;
         }
@@ -270,7 +288,8 @@ final class RaftClientImpl implements RaftClient {
         ioe = e;
       }
 
-      final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, ioe);
+      final int exceptionCount = ioe != null ? pending.incrementExceptionCount(ioe) : 0;
+      ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, exceptionCount, ioe);
       final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
       if (!action.shouldRetry()) {
         throw (IOException)noMoreRetries(event);
@@ -370,7 +389,7 @@ final class RaftClientImpl implements RaftClient {
 
     Optional.ofNullable(handler).ifPresent(h -> h.accept(request));
 
-    if (ioe instanceof LeaderNotReadyException) {
+    if (ioe instanceof LeaderNotReadyException || ioe instanceof ResourceUnavailableException) {
       return;
     }
 

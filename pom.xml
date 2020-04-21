@@ -86,6 +86,7 @@
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
+    <module>ratis-docs</module>
   </modules>
 
   <pluginRepositories>
@@ -242,6 +243,9 @@
 
     <!-- commons lang version -->
     <commons.lang.version>3.8.1</commons.lang.version>
+
+    <!-- LOG4J version -->
+    <log4j.version>1.2.17</log4j.version>
 
   </properties>
 
@@ -433,7 +437,7 @@
       <dependency>
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
-        <version>1.2.17</version>
+        <version>${log4j.version}</version>
       </dependency>
 
       <dependency>
