@@ -243,10 +243,9 @@ class LeaderElection implements Runnable {
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
-            final long term = Math.max(r.term, state.getCurrentTerm());
-            server.changeToFollowerAndPersistMetadata(term, Result.DISCOVERED_A_NEW_TERM);
-            return;
           case TIMEOUT: // should start another election
+            final long term = Math.max(r.term, state.getCurrentTerm());
+            server.changeToFollowerAndPersistMetadata(term, r.result);
             return;
           default: throw new IllegalArgumentException("Unable to process result " + r.result);
         }
